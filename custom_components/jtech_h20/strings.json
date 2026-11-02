@@ -8,13 +8,23 @@
           "host": "Host / IP address",
           "port": "Web port"
         }
+      },
+      "reconfigure": {
+        "title": "Change matrix address",
+        "description": "New address of the same matrix.",
+        "data": {
+          "host": "Host / IP address",
+          "port": "Web port"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Could not read the matrix status page at that address."
+      "cannot_connect": "Could not read the matrix status page at that address.",
+      "wrong_device": "That address answered, but it is a different matrix."
     },
     "abort": {
-      "already_configured": "This matrix is already set up."
+      "already_configured": "This matrix is already set up.",
+      "reconfigure_successful": "Matrix address updated."
     }
   },
   "options": {
@@ -48,6 +58,41 @@
           "tv_7": "Output 7 TV",
           "tv_8": "Output 8 TV"
         }
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "output_source": {
+        "name": "{output} source"
+      },
+      "edid_video": {
+        "name": "{input} video (EDID)"
+      },
+      "edid_audio": {
+        "name": "{input} audio (EDID)"
+      }
+    },
+    "sensor": {
+      "output_video": {
+        "name": "{output} video"
+      }
+    },
+    "switch": {
+      "hdr": {
+        "name": "{input} HDR"
+      },
+      "three_d": {
+        "name": "{input} 3D"
+      },
+      "bit30": {
+        "name": "{input} 30-bit color"
+      },
+      "bit36": {
+        "name": "{input} 36-bit color"
+      },
+      "bit48": {
+        "name": "{input} 48-bit color"
       }
     }
   }

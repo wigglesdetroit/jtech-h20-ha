@@ -163,3 +163,47 @@ async def test_options_flow(hass: HomeAssistant, fake) -> None:
     await hass.async_block_till_done()
     src = hass.states.get("select.hdmi_matrix_living_room_source")
     assert "Roku Ultra 4K" in src.attributes["options"]
+
+
+async def test_diagnostics_redacts_address(hass: HomeAssistant, fake) -> None:
+    from custom_components.jtech_h20.diagnostics import async_get_config_entry_diagnostics
+
+    entry = await _setup(hass, fake)
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    text = str(diag)
+    assert "127.0.0.1" not in text and "02:00:00:00:12:34" not in text
+    assert diag["raw_edid"][1] == "1100002"
+    assert diag["state"]["routing"][1] == 1
+
+
+async def test_reconfigure_same_matrix(hass: HomeAssistant, fake) -> None:
+    """Same matrix at a new address (simulated by a second fake with the same MAC)."""
+    entry = await _setup(hass, fake)
+    moved, runner, port = await start_fake()
+    try:
+        result = await entry.start_reconfigure_flow(hass)
+        assert result["type"] == "form"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: port}
+        )
+        assert result["type"] == "abort" and result["reason"] == "reconfigure_successful"
+        assert entry.data[CONF_PORT] == port
+        await hass.async_block_till_done()
+        assert hass.states.get("select.hdmi_matrix_living_room_source").state == "Roku Ultra"
+    finally:
+        await runner.cleanup()
+
+
+async def test_reconfigure_rejects_other_matrix(hass: HomeAssistant, fake) -> None:
+    entry = await _setup(hass, fake)
+    other, runner, port = await start_fake()
+    try:
+        other.mac = "02:00:00:00:99:99"
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: port}
+        )
+        assert result["errors"] == {"base": "wrong_device"}
+        assert entry.data[CONF_PORT] == fake.port
+    finally:
+        await runner.cleanup()

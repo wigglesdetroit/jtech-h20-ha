@@ -10,6 +10,8 @@ from . import MatrixConfigEntry
 from .api import resolution_for_output
 from .entity import MatrixEntity
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -28,7 +30,8 @@ class OutputVideoSensor(MatrixEntity, SensorEntity):
     def __init__(self, coordinator, output_no: int) -> None:
         super().__init__(coordinator, f"output_{output_no}_video")
         self._out = output_no
-        self._attr_name = f"{coordinator.output_name(output_no)} video"
+        self._attr_translation_key = "output_video"
+        self._attr_translation_placeholders = {"output": coordinator.output_name(output_no)}
 
     @property
     def native_value(self) -> str | None:

@@ -12,6 +12,8 @@ from . import MatrixConfigEntry
 from .api import AUDIO_MODES, VIDEO_MODES, MatrixError
 from .entity import MatrixEntity
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -33,7 +35,8 @@ class OutputSourceSelect(MatrixEntity, SelectEntity):
     def __init__(self, coordinator, output_no: int) -> None:
         super().__init__(coordinator, f"output_{output_no}_source")
         self._out = output_no
-        self._attr_name = f"{coordinator.output_name(output_no)} source"
+        self._attr_translation_key = "output_source"
+        self._attr_translation_placeholders = {"output": coordinator.output_name(output_no)}
 
     def _names(self) -> dict[int, str]:
         return {i: self.coordinator.input_name(i) for i in self.coordinator.active_inputs()}
@@ -74,10 +77,11 @@ class _EdidSelect(MatrixEntity, SelectEntity):
     _field: str
     _choices: dict[str, str]
 
-    def __init__(self, coordinator, input_no: int, key: str, label: str) -> None:
+    def __init__(self, coordinator, input_no: int, key: str) -> None:
         super().__init__(coordinator, f"input_{input_no}_{key}")
         self._in = input_no
-        self._attr_name = f"{coordinator.input_name(input_no)} {label}"
+        self._attr_translation_key = key
+        self._attr_translation_placeholders = {"input": coordinator.input_name(input_no)}
 
     @property
     def options(self) -> list[str]:
@@ -105,7 +109,7 @@ class EdidVideoSelect(_EdidSelect):
     _choices = VIDEO_MODES
 
     def __init__(self, coordinator, input_no: int) -> None:
-        super().__init__(coordinator, input_no, "edid_video", "video (EDID)")
+        super().__init__(coordinator, input_no, "edid_video")
 
 
 class EdidAudioSelect(_EdidSelect):
@@ -114,4 +118,4 @@ class EdidAudioSelect(_EdidSelect):
     _choices = AUDIO_MODES
 
     def __init__(self, coordinator, input_no: int) -> None:
-        super().__init__(coordinator, input_no, "edid_audio", "audio (EDID)")
+        super().__init__(coordinator, input_no, "edid_audio")

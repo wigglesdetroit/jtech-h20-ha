@@ -52,6 +52,40 @@ class JtechConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the address of an already configured matrix."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = user_input.get(CONF_PORT, 80)
+            client = JtechMatrix(host, async_get_clientsession(self.hass), port=port)
+            try:
+                state = await client.async_get_state()
+            except MatrixError:
+                errors["base"] = "cannot_connect"
+            else:
+                if entry.unique_id and state.mac and state.mac.lower() != entry.unique_id:
+                    errors["base"] = "wrong_device"
+                else:
+                    return self.async_update_reload_and_abort(
+                        entry, data_updates={CONF_HOST: host, CONF_PORT: port}
+                    )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=entry.data[CONF_HOST]): str,
+                    vol.Optional(CONF_PORT, default=entry.data.get(CONF_PORT, 80)): vol.All(
+                        int, vol.Range(1, 65535)
+                    ),
+                }
+            ),
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:

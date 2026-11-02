@@ -12,12 +12,14 @@ from . import MatrixConfigEntry
 from .api import MatrixError
 from .entity import MatrixEntity
 
+PARALLEL_UPDATES = 1
+
 FLAGS = [
-    ("hdr", "HDR", "mdi:hdr", True),
-    ("three_d", "3D", "mdi:video-3d", True),
-    ("bit30", "30-bit color", "mdi:palette", False),
-    ("bit36", "36-bit color", "mdi:palette", False),
-    ("bit48", "48-bit color", "mdi:palette", False),
+    ("hdr", "mdi:hdr", True),
+    ("three_d", "mdi:video-3d", True),
+    ("bit30", "mdi:palette", False),
+    ("bit36", "mdi:palette", False),
+    ("bit48", "mdi:palette", False),
 ]
 
 
@@ -33,13 +35,12 @@ async def async_setup_entry(
 class EdidFlagSwitch(MatrixEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(
-        self, coordinator, input_no: int, field: str, label: str, icon: str, default_on: bool
-    ) -> None:
+    def __init__(self, coordinator, input_no: int, field: str, icon: str, default_on: bool) -> None:
         super().__init__(coordinator, f"input_{input_no}_{field}")
         self._in = input_no
         self._field = field
-        self._attr_name = f"{coordinator.input_name(input_no)} {label}"
+        self._attr_translation_key = field
+        self._attr_translation_placeholders = {"input": coordinator.input_name(input_no)}
         self._attr_icon = icon
         self._attr_entity_registry_enabled_default = default_on
 

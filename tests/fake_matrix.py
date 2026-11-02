@@ -41,6 +41,7 @@ class FakeMatrix:
         self.outputs = REAL_SNAPSHOT["outputs"]
         self.drop_concurrent = drop_concurrent
         self.delay = delay
+        self.mac = "02:00:00:00:12:34"
         self.busy = False
         self.requests: list[str] = []
         self.dropped = 0
@@ -50,7 +51,7 @@ class FakeMatrix:
 
     def status_body(self) -> str:
         parts = [
-            '"mac":"02:00:00:00:12:34"',
+            f'"mac":"{self.mac}"',
             '"ip":"192.168.1.50"',
             '"gw":"255.255.255.0"',
             '"sub":"192.168.0.1"',
