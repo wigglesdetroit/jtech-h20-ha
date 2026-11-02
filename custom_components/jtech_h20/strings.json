@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "J-Tech HDMI Matrix",
+        "description": "Address of the matrix's web page (no login needed).",
+        "data": {
+          "host": "Host / IP address",
+          "port": "Web port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not read the matrix status page at that address."
+    },
+    "abort": {
+      "already_configured": "This matrix is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Names and TVs",
+        "description": "Name each input and output. Leave a name blank to hide that port. For each output, say whether its TV is 4K or 1080p.",
+        "data": {
+          "input_1": "Input 1 name",
+          "input_2": "Input 2 name",
+          "input_3": "Input 3 name",
+          "input_4": "Input 4 name",
+          "input_5": "Input 5 name",
+          "input_6": "Input 6 name",
+          "input_7": "Input 7 name",
+          "input_8": "Input 8 name",
+          "output_1": "Output 1 name",
+          "output_2": "Output 2 name",
+          "output_3": "Output 3 name",
+          "output_4": "Output 4 name",
+          "output_5": "Output 5 name",
+          "output_6": "Output 6 name",
+          "output_7": "Output 7 name",
+          "output_8": "Output 8 name",
+          "tv_1": "Output 1 TV",
+          "tv_2": "Output 2 TV",
+          "tv_3": "Output 3 TV",
+          "tv_4": "Output 4 TV",
+          "tv_5": "Output 5 TV",
+          "tv_6": "Output 6 TV",
+          "tv_7": "Output 7 TV",
+          "tv_8": "Output 8 TV"
+        }
+      }
+    }
+  }
+}

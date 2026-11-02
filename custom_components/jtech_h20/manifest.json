@@ -1,0 +1,12 @@
+{
+  "domain": "jtech_h20",
+  "name": "J-Tech HDMI Matrix (8x8 H20)",
+  "codeowners": ["@wigglesdetroit"],
+  "config_flow": true,
+  "documentation": "https://github.com/wigglesdetroit/jtech-h20-ha",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/wigglesdetroit/jtech-h20-ha/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
