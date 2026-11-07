@@ -56,8 +56,9 @@ The EDID string is `[video][HDR][3D][30-bit][36-bit][48-bit][audio]`, where vide
 2.0/5.1/7.1.
 
 **All TVs source** uses the matrix's text command port instead (TCP 5000, the same command
-set as its RS232 port): `@T 04 <input> #` switches every output at once, with the input
-0-based (`00` = input 1). Afterwards the integration reads the routing back and switches any
+set as its RS232 port): `@T 04 <in1> <in2> … <in8> #` sets the input for all 8 outputs
+at once (0-based, `00` = input 1), so `@T 04 01 01 01 01 01 01 01 01 #` puts input 2 on every
+output. Afterwards the integration reads the routing back and switches any
 named TV that didn't follow, one at a time over the web interface, so it still works if the
 command port is unreachable. It switches all 8 outputs, including hidden ones.
 

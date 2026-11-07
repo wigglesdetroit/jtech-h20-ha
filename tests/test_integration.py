@@ -130,7 +130,7 @@ async def test_all_tvs_one_command(hass: HomeAssistant, fake) -> None:
         blocking=True,
     )
     await hass.async_block_till_done()
-    assert fake.commands == ["@T 04 01 #"]
+    assert fake.commands == ["@T 04 01 01 01 01 01 01 01 01 #"]
     assert fake.routing == ["1"] * 8
     assert not [r for r in fake.requests if r.startswith("@PORT")]  # no per-TV fallback
     assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "Onn 4K Pro"

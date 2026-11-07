@@ -3,7 +3,9 @@
 * /HDMI_MUX.js returns settingsCallback({...}) with the real unit's quirks
   (tab separators, swapped gw/sub, trailing comma).
 * /@PORTn=<i>.<rand> and /@EDIDn=<7 chars>.<rand> change state.
-* A TCP command port takes ``@T <out> <in> #`` (out 00-03/11-14, or 04 = all).
+* A TCP command port takes ``@T <out> <in> #`` (out 00-03/11-14) and the routing
+  table ``@T 04 <in1> ... <in8> #``. A short ``@T 04`` list only sets the first outputs,
+  as on the real unit.
 * Like the real unit, it handles one request at a time: a request that arrives
   while another is in progress is dropped (connection closed, no answer).
 """
@@ -111,18 +113,21 @@ class FakeMatrix:
     async def handle_command(self, reader: asyncio.StreamReader, writer) -> None:
         data = (await reader.read(256)).decode()
         self.commands.append(data)
-        m = _TCP_RE.match(data)
-        if m:
-            out, inp = m.group(1), m.group(2)
-            outs = range(8) if out == "04" else [_OUT_CODES.index(out)]
-            for o in outs:
+        table = _TABLE_RE.match(data)
+        single = _TCP_RE.match(data)
+        if table:
+            for o, inp in enumerate(table.group(1).split()):
                 self.routing[o] = format(int(inp), "X")
+        elif single:
+            self.routing[_OUT_CODES.index(single.group(1))] = format(int(single.group(2)), "X")
+        if table or single:
             writer.write(data.encode())
             await writer.drain()
         writer.close()
 
 
-_TCP_RE = re.compile(r"^@T (0[0-4]|1[1-4]) (0[0-7]) #$")
+_TCP_RE = re.compile(r"^@T (0[0-3]|1[1-4]) (0[0-7]) #$")
+_TABLE_RE = re.compile(r"^@T 04((?: 0[0-7]){1,8}) #$")
 _OUT_CODES = ["00", "01", "02", "03", "11", "12", "13", "14"]
 
 

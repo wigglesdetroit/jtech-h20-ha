@@ -8,8 +8,9 @@ Everything here was mapped from the matrix's own web page:
 * ``GET /@EDID<n>=<7 chars>.<random>`` sets input ``n``'s EDID.
 
 The matrix also takes text commands on TCP port 5000 (the RS232 command set).
-Only one is used: ``@T 04 <ii> #`` switches every output to input ``ii`` (0-based)
-in one step, like the front panel's ALL button.
+Only one is used, the routing-table command ``@T 04 <i1> <i2> ... <i8> #``: it sets
+the input (0-based) for outputs 1-8 in one step. Sending the same input eight times
+works like the front panel's ALL button.
 
 EDID string, one character each:
   [0] video mode: 1=1080p 2=4K30 3=4K60 4:2:0 4=4K60 4:4:4, 5..C = copy from TV1..TV8
@@ -229,7 +230,8 @@ class JtechMatrix:
         """Switch every output to one input with a single command."""
         if not 1 <= input_no <= NUM_PORTS:
             raise MatrixError(f"Invalid input {input_no}")
-        return await self._command(f"@T 04 {input_no - 1:02d} #")
+        code = f"{input_no - 1:02d}"
+        return await self._command("@T 04 " + " ".join([code] * NUM_PORTS) + " #")
 
     async def async_set_edid(self, input_no: int, edid: Edid) -> None:
         if not 1 <= input_no <= NUM_PORTS:
