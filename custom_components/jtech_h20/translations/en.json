@@ -66,6 +66,9 @@
       "output_source": {
         "name": "{output} source"
       },
+      "all_outputs_source": {
+        "name": "All TVs source"
+      },
       "edid_video": {
         "name": "{input} video (EDID)"
       },

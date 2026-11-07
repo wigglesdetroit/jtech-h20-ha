@@ -12,4 +12,6 @@ SCAN_INTERVAL = timedelta(seconds=5)
 CONF_INPUT = "input_{}"
 CONF_OUTPUT = "output_{}"
 CONF_TV = "tv_{}"
+# Entry data key for the text-command TCP port (not asked in the UI; default 5000).
+CONF_COMMAND_PORT = "command_port"
 TV_TYPES = ["4K", "1080p"]

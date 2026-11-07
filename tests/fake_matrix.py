@@ -3,6 +3,7 @@
 * /HDMI_MUX.js returns settingsCallback({...}) with the real unit's quirks
   (tab separators, swapped gw/sub, trailing comma).
 * /@PORTn=<i>.<rand> and /@EDIDn=<7 chars>.<rand> change state.
+* A TCP command port takes ``@T <out> <in> #`` (out 00-03/11-14, or 04 = all).
 * Like the real unit, it handles one request at a time: a request that arrives
   while another is in progress is dropped (connection closed, no answer).
 """
@@ -44,10 +45,18 @@ class FakeMatrix:
         self.mac = "02:00:00:00:12:34"
         self.busy = False
         self.requests: list[str] = []
+        self.commands: list[str] = []
         self.dropped = 0
         self.fail_next = 0  # make the next N requests return HTTP 500
         self.app = web.Application()
         self.app.router.add_get("/{tail:.*}", self.handle)
+        self.app.on_cleanup.append(self._close_tcp)
+        self.tcp: asyncio.Server | None = None
+
+    async def _close_tcp(self, _app) -> None:
+        if self.tcp:
+            self.tcp.close()
+            await self.tcp.wait_closed()
 
     def status_body(self) -> str:
         parts = [
@@ -94,6 +103,24 @@ class FakeMatrix:
             self.busy = False
 
 
+    async def handle_command(self, reader: asyncio.StreamReader, writer) -> None:
+        data = (await reader.read(256)).decode()
+        self.commands.append(data)
+        m = _TCP_RE.match(data)
+        if m:
+            out, inp = m.group(1), m.group(2)
+            outs = range(8) if out == "04" else [_OUT_CODES.index(out)]
+            for o in outs:
+                self.routing[o] = format(int(inp), "X")
+            writer.write(data.encode())
+            await writer.drain()
+        writer.close()
+
+
+_TCP_RE = re.compile(r"^@T (0[0-4]|1[1-4]) (0[0-7]) #$")
+_OUT_CODES = ["00", "01", "02", "03", "11", "12", "13", "14"]
+
+
 async def start_fake(port: int = 0, **kwargs) -> tuple[FakeMatrix, web.AppRunner, int]:
     fake = FakeMatrix(**kwargs)
     runner = web.AppRunner(fake.app)
@@ -101,4 +128,6 @@ async def start_fake(port: int = 0, **kwargs) -> tuple[FakeMatrix, web.AppRunner
     site = web.TCPSite(runner, "127.0.0.1", port)
     await site.start()
     actual = site._server.sockets[0].getsockname()[1]
+    fake.tcp = await asyncio.start_server(fake.handle_command, "127.0.0.1", 0)
+    fake.command_port = fake.tcp.sockets[0].getsockname()[1]
     return fake, runner, actual

@@ -1,10 +1,11 @@
 # J-Tech HDMI Matrix (8x8 H20) for Home Assistant
 
-> **Status: beta (0.1.0).** Tested against a fake matrix that copies a real unit's
+> **Status: beta (0.2.0).** Tested against a fake matrix that copies a real unit's
 > responses; real-hardware testing is in progress.
 
 Local control of the **J-Tech Digital JTECH-8X8-H20** (JTD-279) 4K HDMI 2.0 matrix,
-through the matrix's own web interface. No cloud, no serial cable, no extra software.
+through the matrix's own web interface (plus one command on its TCP command port).
+No cloud, no serial cable, no extra software.
 
 ## What you get
 
@@ -15,6 +16,11 @@ For each TV output:
 - **Video sensor** (`sensor`): the resolution that output is getting (`1080p` / `4K`),
   with attributes for the source, EDID video and audio settings, HDR, and what is
   holding it back, if anything.
+
+For the whole matrix:
+
+- **All TVs source** (`select`): send one input to every output in a single step, like the
+  front panel's ALL button. Shows the input when every named TV is on the same one.
 
 For each input:
 
@@ -49,8 +55,15 @@ The EDID string is `[video][HDR][3D][30-bit][36-bit][48-bit][audio]`, where vide
 `1`–`4` for the fixed modes or `5`–`C` to copy TV1–TV8, and audio is `1`/`2`/`4` for
 2.0/5.1/7.1.
 
+**All TVs source** uses the matrix's text command port instead (TCP 5000, the same command
+set as its RS232 port): `@T 04 <input> #` switches every output at once, with the input
+0-based (`00` = input 1). Afterwards the integration reads the routing back and switches any
+named TV that didn't follow, one at a time over the web interface, so it still works if the
+command port is unreachable. It switches all 8 outputs, including hidden ones.
+
 The matrix only answers one request at a time; simultaneous requests get dropped. The
-integration sends everything through a single queue and polls every 5 seconds.
+integration sends everything, web requests and commands alike, through a single queue and
+polls every 5 seconds. Avoid running other tools that poll the matrix at the same time.
 
 ## What it will never do
 

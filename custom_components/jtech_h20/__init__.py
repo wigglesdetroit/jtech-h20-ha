@@ -7,7 +7,8 @@ from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import JtechMatrix
+from .api import COMMAND_PORT, JtechMatrix
+from .const import CONF_COMMAND_PORT
 from .coordinator import MatrixCoordinator
 
 PLATFORMS = [Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
@@ -20,6 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MatrixConfigEntry) -> bo
         entry.data[CONF_HOST],
         async_get_clientsession(hass),
         port=entry.data.get(CONF_PORT, 80),
+        command_port=entry.data.get(CONF_COMMAND_PORT, COMMAND_PORT),
     )
     coordinator = MatrixCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

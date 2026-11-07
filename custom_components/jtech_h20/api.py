@@ -7,6 +7,10 @@ Everything here was mapped from the matrix's own web page:
 * ``GET /@PORT<o>=<i>.<random>`` routes output ``o`` (1-8) to input ``i`` (1-8).
 * ``GET /@EDID<n>=<7 chars>.<random>`` sets input ``n``'s EDID.
 
+The matrix also takes text commands on TCP port 5000 (the RS232 command set).
+Only one is used: ``@T 04 <ii> #`` switches every output to input ``ii`` (0-based)
+in one step, like the front panel's ALL button.
+
 EDID string, one character each:
   [0] video mode: 1=1080p 2=4K30 3=4K60 4:2:0 4=4K60 4:4:4, 5..C = copy from TV1..TV8
   [1] HDR  [2] 3D  [3] 30-bit  [4] 36-bit  [5] 48-bit   ("1" = on)
@@ -19,6 +23,7 @@ changes, factory reset. This client cannot brick the matrix.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 import re
 from dataclasses import dataclass, field, replace
@@ -26,6 +31,7 @@ from dataclasses import dataclass, field, replace
 import aiohttp
 
 NUM_PORTS = 8
+COMMAND_PORT = 5000
 
 VIDEO_MODES: dict[str, str] = {
     "1": "1080p",
@@ -141,9 +147,11 @@ class JtechMatrix:
         port: int = 80,
         timeout: float = 8.0,
         settle: float = 0.3,
+        command_port: int = COMMAND_PORT,
     ) -> None:
         self.host = host
         self.port = port
+        self.command_port = command_port
         self._session = session
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._settle = settle
@@ -166,6 +174,34 @@ class JtechMatrix:
             await asyncio.sleep(self._settle)
             return body
 
+    async def _command(self, text: str) -> str:
+        """Send one text command to the command port and return whatever it answers."""
+        async with self._lock:
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(self.host, self.command_port),
+                    self._timeout.total,
+                )
+            except (OSError, TimeoutError) as err:
+                raise MatrixError(
+                    f"Cannot reach matrix command port {self.host}:{self.command_port}: {err}"
+                ) from err
+            try:
+                writer.write(text.encode("ascii"))
+                await writer.drain()
+                try:
+                    reply = await asyncio.wait_for(reader.read(256), 1.0)
+                except TimeoutError:
+                    reply = b""
+            except OSError as err:
+                raise MatrixError(f"Command {text!r} failed: {err}") from err
+            finally:
+                writer.close()
+                with contextlib.suppress(OSError):
+                    await writer.wait_closed()
+            await asyncio.sleep(self._settle)
+            return reply.replace(b"\x00", b"").decode("ascii", errors="replace").strip()
+
     async def async_get_state(self) -> MatrixState:
         return parse_status(await self._get("/HDMI_MUX.js"))
 
@@ -177,6 +213,12 @@ class JtechMatrix:
         if not (1 <= output_no <= NUM_PORTS and 1 <= input_no <= NUM_PORTS):
             raise MatrixError(f"Invalid route output {output_no} -> input {input_no}")
         await self._get(f"/@PORT{output_no}={input_no}{self._suffix()}")
+
+    async def async_route_all(self, input_no: int) -> str:
+        """Switch every output to one input with a single command."""
+        if not 1 <= input_no <= NUM_PORTS:
+            raise MatrixError(f"Invalid input {input_no}")
+        return await self._command(f"@T 04 {input_no - 1:02d} #")
 
     async def async_set_edid(self, input_no: int, edid: Edid) -> None:
         if not 1 <= input_no <= NUM_PORTS:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -11,6 +13,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import MatrixConfigEntry
 from .api import AUDIO_MODES, VIDEO_MODES, MatrixError
 from .entity import MatrixEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 1
 
@@ -22,6 +26,7 @@ async def async_setup_entry(
 ) -> None:
     c = entry.runtime_data
     entities: list[SelectEntity] = [OutputSourceSelect(c, o) for o in c.active_outputs()]
+    entities.append(AllOutputsSelect(c))
     for i in c.active_inputs():
         entities += [EdidVideoSelect(c, i), EdidAudioSelect(c, i)]
     async_add_entities(entities)
@@ -67,6 +72,50 @@ class OutputSourceSelect(MatrixEntity, SelectEntity):
             raise HomeAssistantError(f"Unknown source {option}")
         try:
             await self.coordinator.client.async_route(self._out, target)
+        except MatrixError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self._after_write()
+
+
+class AllOutputsSelect(MatrixEntity, SelectEntity):
+    """Send one input to every TV at once."""
+
+    _attr_icon = "mdi:television-shimmer"
+    _attr_translation_key = "all_outputs_source"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "all_outputs_source")
+
+    def _names(self) -> dict[int, str]:
+        return {i: self.coordinator.input_name(i) for i in self.coordinator.active_inputs()}
+
+    @property
+    def options(self) -> list[str]:
+        return list(self._names().values())
+
+    @property
+    def current_option(self) -> str | None:
+        """The input every named TV is on, or nothing when they differ."""
+        routing = self.coordinator.data.routing
+        inputs = {routing.get(o) for o in self.coordinator.active_outputs()}
+        return self._names().get(inputs.pop()) if len(inputs) == 1 else None
+
+    async def async_select_option(self, option: str) -> None:
+        target = next((i for i, n in self._names().items() if n == option), None)
+        if target is None:
+            raise HomeAssistantError(f"Unknown source {option}")
+        client = self.coordinator.client
+        try:
+            # One command for all outputs; if the matrix didn't take it (or the command
+            # port is unreachable), finish the job one output at a time.
+            try:
+                await client.async_route_all(target)
+            except MatrixError as err:
+                _LOGGER.warning("All-outputs command failed, switching TVs one by one: %s", err)
+            state = await client.async_get_state()
+            for out in self.coordinator.active_outputs():
+                if state.routing.get(out) != target:
+                    await client.async_route(out, target)
         except MatrixError as err:
             raise HomeAssistantError(str(err)) from err
         await self._after_write()

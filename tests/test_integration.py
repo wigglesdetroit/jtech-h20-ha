@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.jtech_h20.const import DOMAIN
+from custom_components.jtech_h20.const import CONF_COMMAND_PORT, DOMAIN
 from tests.fake_matrix import start_fake
 
 pytestmark = pytest.mark.enable_socket
@@ -41,11 +41,15 @@ async def fake(socket_enabled):
     await runner.cleanup()
 
 
-async def _setup(hass: HomeAssistant, fake) -> MockConfigEntry:
+async def _setup(hass: HomeAssistant, fake, command_port: int | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="02:00:00:00:12:34",
-        data={CONF_HOST: "127.0.0.1", CONF_PORT: fake.port},
+        data={
+            CONF_HOST: "127.0.0.1",
+            CONF_PORT: fake.port,
+            CONF_COMMAND_PORT: command_port or fake.command_port,
+        },
         options=NAMES,
     )
     entry.add_to_hass(hass)
@@ -113,6 +117,50 @@ async def test_route_output(hass: HomeAssistant, fake) -> None:
     video = hass.states.get("sensor.hdmi_matrix_living_room_video")
     assert video.state == "4K" and video.attributes["held_back_by"] is None
     assert fake.dropped == 0
+
+
+async def test_all_tvs_one_command(hass: HomeAssistant, fake) -> None:
+    await _setup(hass, fake)
+    assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "Roku Ultra"
+    fake.requests.clear()
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": "select.hdmi_matrix_all_tvs_source", "option": "Onn 4K Pro"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert fake.commands == ["@T 04 01 #"]
+    assert fake.routing == ["1"] * 8
+    assert not [r for r in fake.requests if r.startswith("@PORT")]  # no per-TV fallback
+    assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "Onn 4K Pro"
+    assert hass.states.get("select.hdmi_matrix_basement_source").state == "Onn 4K Pro"
+    assert fake.dropped == 0
+
+
+async def test_all_tvs_falls_back_per_tv(hass: HomeAssistant, fake) -> None:
+    """Command port unreachable: the named TVs are still switched one at a time."""
+    closed = fake.command_port
+    fake.tcp.close()
+    await fake.tcp.wait_closed()
+    fake.tcp = None
+    await _setup(hass, fake, command_port=closed)
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": "select.hdmi_matrix_all_tvs_source", "option": "Camera Wall"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert fake.routing[:4] == ["3"] * 4 and fake.routing[4:] == ["0"] * 4
+    assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "Camera Wall"
+    assert fake.dropped == 0
+
+
+async def test_all_tvs_shows_nothing_when_mixed(hass: HomeAssistant, fake) -> None:
+    fake.routing[1] = "2"
+    await _setup(hass, fake)
+    assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "unknown"
 
 
 async def test_edid_changes_only_touch_one_field(hass: HomeAssistant, fake) -> None:
