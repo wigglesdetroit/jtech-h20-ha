@@ -112,7 +112,14 @@ class AllOutputsSelect(MatrixEntity, SelectEntity):
                 await client.async_route_all(target)
             except MatrixError as err:
                 _LOGGER.warning("All-outputs command failed, switching TVs one by one: %s", err)
-            state = await client.async_get_state()
+            try:
+                state = await client.async_get_state()
+            except MatrixError as err:
+                # The command was sent; the web interface just isn't answering yet.
+                # Polling will pick up the new routing.
+                _LOGGER.debug("Could not read routing back after all-outputs command: %s", err)
+                await self._after_write()
+                return
             outputs = self.coordinator.active_outputs()
             missed = [o for o in outputs if state.routing.get(o) != target]
             if missed:

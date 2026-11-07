@@ -33,8 +33,9 @@ import aiohttp
 
 NUM_PORTS = 8
 COMMAND_PORT = 5000
-# After a command-port command the web interface needs a moment before it answers again.
-COMMAND_SETTLE = 1.0
+# After a command-port command the web interface stops answering for about two seconds
+# (measured on a real unit), so hold the queue a little longer than that.
+COMMAND_SETTLE = 2.5
 
 VIDEO_MODES: dict[str, str] = {
     "1": "1080p",
