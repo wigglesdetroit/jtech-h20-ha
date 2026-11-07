@@ -32,6 +32,8 @@ import aiohttp
 
 NUM_PORTS = 8
 COMMAND_PORT = 5000
+# After a command-port command the web interface needs a moment before it answers again.
+COMMAND_SETTLE = 1.0
 
 VIDEO_MODES: dict[str, str] = {
     "1": "1080p",
@@ -163,13 +165,22 @@ class JtechMatrix:
 
     async def _get(self, path: str) -> str:
         async with self._lock:
-            try:
-                async with self._session.get(self.base_url + path, timeout=self._timeout) as resp:
-                    if resp.status != 200:
-                        raise MatrixError(f"HTTP {resp.status} for {path}")
-                    body = await resp.text(errors="replace")
-            except (TimeoutError, aiohttp.ClientError) as err:
-                raise MatrixError(f"Cannot reach matrix at {self.base_url}: {err}") from err
+            # The matrix sometimes drops a connection outright; one retry covers that.
+            for attempt in range(2):
+                try:
+                    async with self._session.get(
+                        self.base_url + path, timeout=self._timeout
+                    ) as resp:
+                        if resp.status != 200:
+                            raise MatrixError(f"HTTP {resp.status} for {path}")
+                        body = await resp.text(errors="replace")
+                    break
+                except aiohttp.ClientConnectionError as err:
+                    if attempt:
+                        raise MatrixError(f"Cannot reach matrix at {self.base_url}: {err}") from err
+                    await asyncio.sleep(0.5)
+                except (TimeoutError, aiohttp.ClientError) as err:
+                    raise MatrixError(f"Cannot reach matrix at {self.base_url}: {err}") from err
             # Give the matrix a moment before the next request.
             await asyncio.sleep(self._settle)
             return body
@@ -199,7 +210,7 @@ class JtechMatrix:
                 writer.close()
                 with contextlib.suppress(OSError):
                     await writer.wait_closed()
-            await asyncio.sleep(self._settle)
+            await asyncio.sleep(max(self._settle, COMMAND_SETTLE))
             return reply.replace(b"\x00", b"").decode("ascii", errors="replace").strip()
 
     async def async_get_state(self) -> MatrixState:

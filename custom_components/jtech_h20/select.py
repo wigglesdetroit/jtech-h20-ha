@@ -113,9 +113,16 @@ class AllOutputsSelect(MatrixEntity, SelectEntity):
             except MatrixError as err:
                 _LOGGER.warning("All-outputs command failed, switching TVs one by one: %s", err)
             state = await client.async_get_state()
-            for out in self.coordinator.active_outputs():
-                if state.routing.get(out) != target:
-                    await client.async_route(out, target)
+            outputs = self.coordinator.active_outputs()
+            missed = [o for o in outputs if state.routing.get(o) != target]
+            if missed:
+                _LOGGER.warning(
+                    "Matrix did not switch outputs %s with the all-outputs command; "
+                    "switching them one by one",
+                    missed,
+                )
+            for out in missed:
+                await client.async_route(out, target)
         except MatrixError as err:
             raise HomeAssistantError(str(err)) from err
         await self._after_write()

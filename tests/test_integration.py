@@ -163,6 +163,20 @@ async def test_all_tvs_shows_nothing_when_mixed(hass: HomeAssistant, fake) -> No
     assert hass.states.get("select.hdmi_matrix_all_tvs_source").state == "unknown"
 
 
+async def test_dropped_connection_is_retried(hass: HomeAssistant, fake) -> None:
+    await _setup(hass, fake)
+    fake.reset_next = 1
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": "select.hdmi_matrix_living_room_source", "option": "Camera Wall"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert fake.routing[0] == "3"
+    assert hass.states.get("select.hdmi_matrix_living_room_source").state == "Camera Wall"
+
+
 async def test_edid_changes_only_touch_one_field(hass: HomeAssistant, fake) -> None:
     await _setup(hass, fake)
     await hass.services.async_call(

@@ -48,6 +48,7 @@ class FakeMatrix:
         self.commands: list[str] = []
         self.dropped = 0
         self.fail_next = 0  # make the next N requests return HTTP 500
+        self.reset_next = 0  # drop the connection on the next N requests
         self.app = web.Application()
         self.app.router.add_get("/{tail:.*}", self.handle)
         self.app.on_cleanup.append(self._close_tcp)
@@ -80,6 +81,10 @@ class FakeMatrix:
         self.requests.append(path)
         if self.drop_concurrent and self.busy:
             self.dropped += 1
+            request.transport.close()
+            raise asyncio.CancelledError
+        if self.reset_next:
+            self.reset_next -= 1
             request.transport.close()
             raise asyncio.CancelledError
         if self.fail_next:
